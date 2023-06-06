@@ -29,6 +29,6 @@ pub async fn add_or_nothing_guild(db: &DatabaseConnection, guild_id: u64) -> Res
             info!("Added guild to database");
             Ok(r)
         }
-        Err(e) => Err(anyhow!("Error adding guild to database: **{:?}**", e)),
+        Err(e) => Err(anyhow!("Error adding guild to database: {:?}", e)),
     }
 }

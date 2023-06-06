@@ -20,7 +20,7 @@ pub async fn get_channels(db: &DatabaseConnection) -> Result<Vec<channels::Model
     let channels = channels::Entity::find().all(db).await;
     match channels {
         Ok(channels) => Ok(channels),
-        Err(e) => Err(anyhow!("Error getting channels from database: **{:?}**", e)),
+        Err(e) => Err(anyhow!("Error getting channels from database: {:?}", e)),
     }
 }
 
@@ -31,7 +31,7 @@ pub async fn get_channels_in_guild(db: &DatabaseConnection, guild_id: u64) -> Re
         .await;
     match found_channels {
         Ok(channels) => Ok(channels),
-        Err(e) => Err(anyhow!("Error getting channels from database: **{:?}**", e)),
+        Err(e) => Err(anyhow!("Error getting channels from database: {:?}", e)),
     }
 }
 
@@ -43,7 +43,7 @@ pub async fn get_channels_in_guild_with_use(db: &DatabaseConnection, guild_id: u
         .await;
     match found_channels {
         Ok(channels) => Ok(channels),
-        Err(e) => Err(anyhow!("Error getting channels from database: **{:?}**", e)),
+        Err(e) => Err(anyhow!("Error getting channels from database: {:?}", e)),
     }
 }
 
@@ -63,6 +63,6 @@ pub async fn add_channel_for_guild(db: &DatabaseConnection, guild_id: u64, chann
         .await;
     match add_result {
         Ok(_) => Ok(add_result.unwrap()),
-        Err(e) => Err(anyhow!("Error adding channel to database: **{:?}**", e)),
+        Err(e) => Err(anyhow!("Error adding channel to database: {:?}", e)),
     }
 }
