@@ -31,20 +31,23 @@ pub async fn _confess_to(
         channel.0,
     )
     .await;
-    let content = input_content.or(match input_image {
-        Some(image) => Some(format!("Filename: {}", image.filename)),
+    let mut content = input_content.or(match input_image {
+        Some(image) => Some(format!("[Filename: {}]", image.filename)),
         None => None,
-    }).or(match ctx {
-        poise::Context::Application(app) => {
-            let modal = execute_modal::<_, _, ConfessionModal>(*app, None, None).await;
-            if let Ok(modal_result) = modal {
-                modal_result.map(|m| m.content)
-            } else {
-                None
-            }
-        },
-        poise::Context::Prefix(_) => None
     });
+    if let None = content {
+        content = match ctx {
+            poise::Context::Application(app) => {
+                let modal = execute_modal::<_, _, ConfessionModal>(*app, None, None).await;
+                if let Ok(modal_result) = modal {
+                    modal_result.map(|m| m.content)
+                } else {
+                    None
+                }
+            },
+            poise::Context::Prefix(_) => None
+        };
+    };
     // get a modal to send to the user
     let response = match channel_usage_result {
         Ok(channel_type) => {
