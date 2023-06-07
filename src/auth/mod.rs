@@ -42,11 +42,7 @@ pub async fn respond_based_on_auth_context(ctx: &Context<'_>, required: Auth) ->
                 let formatted = match required {
                     Auth::User => "`user`".to_owned(),
                     Auth::Admin => "`admin`".to_owned(),
-                    // Auth::Role(id) => format!("<@&{}>", id.0),
-                    Auth::Role(id) => util::resolve_role(&ctx, id)
-                        .await
-                        .map(|role| role.name)
-                        .unwrap_or("unknown".to_owned()),
+                    Auth::Role(id) => format!("<@&{}>", id.0),
                 };
                 match ctx
                     .send(|builder| {
