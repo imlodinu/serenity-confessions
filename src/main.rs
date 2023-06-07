@@ -2,15 +2,13 @@ use poise::serenity_prelude as serenity;
 use shuttle_secrets::SecretStore;
 
 mod commands;
-
 mod router;
 use router::build_router;
-
 mod database;
-
 mod entity;
-
 mod operations;
+mod auth;
+mod util;
 
 pub struct Data {
     database: sea_orm::DatabaseConnection,
@@ -29,7 +27,6 @@ impl shuttle_runtime::Service for BotService {
         let router = self.router;
 
         let serve_router = axum::Server::bind(&addr).serve(router.into_make_service());
-
         tokio::select!(
             _ = self.discord_bot.run() => {},
             _ = serve_router => {}
@@ -44,7 +41,6 @@ async fn serenity(
     #[shuttle_secrets::Secrets] secret_store: SecretStore,
 ) -> Result<BotService, shuttle_runtime::Error> {
     database::initialise(&secret_store);
-    // database::migrate_up().await;
 
     let discord_api_key = secret_store.get("DISCORD_TOKEN").unwrap();
 
@@ -55,6 +51,8 @@ async fn serenity(
                 commands::initialise(),
                 commands::channel::set_channel(),
                 commands::channel::get_channels(),
+                //
+                commands::confessions::confess(),
             ],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),
