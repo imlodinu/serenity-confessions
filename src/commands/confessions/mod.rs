@@ -1,4 +1,3 @@
-use poise::serenity_prelude as serenity;
 use tracing::info;
 
 // this is a blank struct initialised in main.rs and then imported here
@@ -19,17 +18,20 @@ pub async fn confess(
     ctx: Context<'_>,
     #[description = "Context"] channel_use: ChannelUse,
 ) -> Result<(), Error> {
-    let confession_channels_result = operations::channels::get_channels_in_guild_with_use(
+    let channel_usage_result = operations::channels::get_channel_use(
         &ctx.data().database,
         ctx.guild_id().unwrap().0,
-        channel_use,
+        ctx.channel_id().0,
     )
     .await;
-    let parsed_confession_channels_result =
-        confession_channels_result.map(|c| c.into_iter().map(|c| c.id).collect::<Vec<u64>>());
-    let response = match parsed_confession_channels_result {
-        Ok(r) => serde_json::to_string(&r).unwrap_or("Error serialising channels".to_owned()),
-        Err(e) => e.to_string(),
+    let response = match channel_usage_result {
+        Ok(channel_type) => {
+            match channel_type == ChannelUse::ConfessionOut {
+                true => format!("Confessing in channel {}", channel_use),
+                false => format!("Channel {} is not for confessing", channel_use),
+            }
+        },
+        Err(e) => format!("Error getting channel usage: {}", e.to_string()),
     };
     if let Err(why) = ctx.say(response).await {
         info!("Error sending message: {:?}", why);
