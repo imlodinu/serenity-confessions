@@ -1,4 +1,5 @@
 use tracing::info;
+use poise::serenity_prelude as serenity;
 
 // this is a blank struct initialised in main.rs and then imported here
 use crate::{operations, Data};
@@ -16,7 +17,8 @@ use super::super::operations::channels::ChannelUse;
 )]
 pub async fn confess(
     ctx: Context<'_>,
-    #[description = "Context"] channel_use: ChannelUse,
+    #[description = "Content"] content: Option<String>,
+    #[description = "An image"] image: Option<serenity::Attachment>,
 ) -> Result<(), Error> {
     let channel_usage_result = operations::channels::get_channel_use(
         &ctx.data().database,
@@ -27,13 +29,16 @@ pub async fn confess(
     let response = match channel_usage_result {
         Ok(channel_type) => {
             match channel_type == ChannelUse::ConfessionOut {
-                true => format!("Confessing in channel {}", channel_use),
-                false => format!("Channel {} is not for confessing", channel_use),
+                true => format!("Your confession is on it's way to be vetted!"),
+                false => format!("This channel (<@&{}>) is not for confessing. Use `/list` to find places to confess.", ctx.channel_id()),
             }
         },
-        Err(e) => format!("Error getting channel usage: {}", e.to_string()),
+        Err(e) => format!("Error getting channel usage: {}\nYour confession has not been processed.", e.to_string()),
     };
-    if let Err(why) = ctx.say(response).await {
+    if let Err(why) = ctx
+        .send(|builder| builder.content(response).ephemeral(true).reply(true))
+        .await
+    {
         info!("Error sending message: {:?}", why);
     }
     Ok(())
