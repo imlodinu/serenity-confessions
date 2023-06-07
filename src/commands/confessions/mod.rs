@@ -30,7 +30,7 @@ pub async fn confess(
         Ok(channel_type) => {
             match channel_type == ChannelUse::ConfessionOut {
                 true => format!("Your confession is on it's way to be vetted!"),
-                false => format!("This channel (<@&{}>) is not for confessing. Use `/list` to find places to confess.", ctx.channel_id()),
+                false => format!("This channel (<#{}>) is not for confessing. Use `/list` to find places to confess.", ctx.channel_id()),
             }
         },
         Err(e) => format!("Error getting channel usage: {}\nYour confession has not been processed.", e.to_string()),
