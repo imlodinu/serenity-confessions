@@ -17,11 +17,11 @@ pub async fn set_channel(
         &ctx.data().database,
         ctx.guild_id().unwrap().0,
         ctx.channel_id().0,
-        channel_use.clone(),
+        channel_use,
     )
     .await;
     let response = match channel_result {
-        Ok(_) => format!("Set channel usage to {}!", channel_use),
+        Ok(_) => format!("Set channel usage to {}.", channel_use),
         Err(e) => e.to_string(),
     };
     if let Err(why_discord_say) = ctx.say(response).await {
