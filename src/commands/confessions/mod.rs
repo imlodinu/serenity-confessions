@@ -23,7 +23,7 @@ pub async fn _confess_to(
     ctx: &Context<'_>,
     channel: serenity::ChannelId,
     input_content: Option<String>,
-    image: Option<serenity::Attachment>,
+    input_image: Option<serenity::Attachment>,
 ) -> Result<(), Error> {
     let channel_usage_result = operations::channels::get_channel_use(
         &ctx.data().database,
@@ -31,7 +31,10 @@ pub async fn _confess_to(
         channel.0,
     )
     .await;
-    let content = input_content.or(match ctx {
+    let content = input_content.or(match input_image {
+        Some(image) => Some(format!("Filename: {}", image.filename)),
+        None => None,
+    }).or(match ctx {
         poise::Context::Application(app) => {
             let modal = execute_modal::<_, _, ConfessionModal>(*app, None, None).await;
             if let Ok(modal_result) = modal {
