@@ -35,29 +35,44 @@ pub async fn is_user_authorised_for_action(
     }
 }
 
+pub async fn send_unauthorised_message(ctx: &Context<'_>, required: Auth) -> Result<()> {
+    let formatted = match required {
+        Auth::Everyone => "`everyone`".to_owned(),
+        Auth::Admin => "`admin`".to_owned(),
+        Auth::User(id) => format!("user to be <@{}>", id.0),
+        Auth::Role(id) => format!("<@&{}>", id.0),
+    };
+    match ctx
+        .send(|builder| {
+            builder.reply(true).content(format!(
+                "You are not authorised to use this command. Requires {}",
+                formatted
+            ))
+        })
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(anyhow!(e.to_string())),
+    }
+}
+
 pub async fn respond_based_on_auth_context(ctx: &Context<'_>, required: Auth) -> Result<bool> {
+    if ctx.command().dm_only {
+        return match required {
+            Auth::Everyone => Ok(true),
+            Auth::User(user_id) => Ok(ctx.author().id == user_id),
+            _ => {
+                send_unauthorised_message(ctx, required).await?;
+                Ok(false)
+            }
+        }
+    }
     match is_user_authorised_for_action(&ctx, ctx.author_member().await.unwrap(), required).await {
         Ok(allowed) => match allowed {
             true => Ok(true),
             false => {
-                let formatted = match required {
-                    Auth::Everyone => "`everyone`".to_owned(),
-                    Auth::Admin => "`admin`".to_owned(),
-                    Auth::User(id) => format!("user to be <@{}>", id.0),
-                    Auth::Role(id) => format!("<@&{}>", id.0),
-                };
-                match ctx
-                    .send(|builder| {
-                        builder.reply(true).content(format!(
-                            "You are not authorised to use this command. Requires {}",
-                            formatted
-                        ))
-                    })
-                    .await
-                {
-                    Ok(_) => Ok(false),
-                    Err(e) => Err(anyhow!(e.to_string())),
-                }
+                send_unauthorised_message(ctx, required).await?;
+                Ok(false)
             }
         },
         Err(e) => Err(anyhow!(e.to_string())),
