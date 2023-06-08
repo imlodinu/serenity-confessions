@@ -4,10 +4,10 @@ use shuttle_secrets::SecretStore;
 mod commands;
 mod router;
 use router::build_router;
+mod auth;
 mod database;
 mod entity;
 mod operations;
-mod auth;
 mod util;
 
 pub struct Data {

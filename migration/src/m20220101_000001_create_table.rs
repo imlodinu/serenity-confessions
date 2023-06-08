@@ -11,12 +11,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Guild::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Guild::Id)
-                            .integer()
-                            .not_null()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Guild::Id).integer().not_null().primary_key())
                     .to_owned(),
             )
             .await

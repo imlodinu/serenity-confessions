@@ -11,7 +11,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 pub mod channel;
 pub mod confessions;
 
-#[poise::command(prefix_command, dm_only = true)]
+#[poise::command(prefix_command)]
 pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
     let auth_res =
         auth::respond_based_on_auth_context(&ctx, auth::Auth::User(505513490077843477.into()))
@@ -31,10 +31,8 @@ pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
     {
         info!("Could not clear commands: {:?}", why);
     } else {
-        ctx.send(|message| {
-            message.content("Cleared commands.")
-                .reply(true)
-        }).await?;
+        ctx.send(|message| message.content("Cleared commands.").reply(true))
+            .await?;
         info!("Cleared commands.");
     };
     Ok(())
@@ -42,9 +40,7 @@ pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
 
 #[poise::command(slash_command, prefix_command, guild_only = true)]
 pub async fn initialise(ctx: Context<'_>) -> Result<(), Error> {
-    let auth_res =
-        auth::respond_based_on_auth_context(&ctx, auth::Auth::Role(1114178684648165387.into()))
-            .await;
+    let auth_res = auth::respond_based_on_auth_context(&ctx, auth::Auth::Admin).await;
     match auth_res {
         Ok(authorised) => {
             if !authorised {
