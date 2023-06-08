@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use migration::OnConflict;
-use sea_orm::{DatabaseConnection, EntityTrait, InsertResult, QueryTrait, Set};
-use tracing::{info, warn};
+use sea_orm::{DatabaseConnection, EntityTrait, InsertResult, Set};
+use tracing::info;
 
 use crate::entity::guild;
 

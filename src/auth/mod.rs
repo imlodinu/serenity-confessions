@@ -1,15 +1,14 @@
 use std::borrow::Cow;
 
 use anyhow::{anyhow, Result};
-use poise::serenity_prelude::{self as serenity, Mention};
+use poise::serenity_prelude as serenity;
 
-use crate::{operations, Data};
+use crate::Data;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-use super::util;
-
+#[allow(dead_code)]
 #[derive(Clone, Debug, Copy)]
 pub enum Auth {
     User,

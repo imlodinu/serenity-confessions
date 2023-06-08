@@ -46,6 +46,7 @@ impl Into<sea_orm::Value> for ChannelUse {
     }
 }
 
+#[allow(dead_code)]
 pub async fn get_channels(db: &DatabaseConnection) -> Result<Vec<channels::Model>> {
     let channels = channels::Entity::find().all(db).await;
     match channels {
@@ -68,6 +69,7 @@ pub async fn get_channels_in_guild(
     }
 }
 
+#[allow(dead_code)]
 pub async fn get_channels_in_guild_with_use(
     db: &DatabaseConnection,
     guild_id: u64,
