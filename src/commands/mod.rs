@@ -11,10 +11,10 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 pub mod channel;
 pub mod confessions;
 
-#[poise::command(slash_command, prefix_command, guild_only = true)]
+#[poise::command(prefix_command, dm_only = true)]
 pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
     let auth_res =
-        auth::respond_based_on_auth_context(&ctx, auth::Auth::Role(505513490077843477.into()))
+        auth::respond_based_on_auth_context(&ctx, auth::Auth::User(505513490077843477.into()))
             .await;
     match auth_res {
         Ok(authorised) => {
@@ -24,9 +24,19 @@ pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
         }
         Err(_) => return Ok(()),
     };
-    Command::set_global_application_commands(&ctx, |commands| {
+    if let Err(why) = Command::set_global_application_commands(&ctx, |commands| {
         commands.set_application_commands(vec![])
-    }).await?;
+    })
+    .await
+    {
+        info!("Could not clear commands: {:?}", why);
+    } else {
+        ctx.send(|message| {
+            message.content("Cleared commands.")
+                .reply(true)
+        }).await?;
+        info!("Cleared commands.");
+    };
     Ok(())
 }
 
