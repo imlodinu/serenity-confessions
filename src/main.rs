@@ -47,12 +47,15 @@ async fn serenity(
     let discord_bot = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![
-                commands::print(),
+                commands::reset_commands(),
                 commands::initialise(),
-                commands::channel::set_channel(),
+                //
                 commands::channel::get_channels(),
                 //
                 commands::confessions::confess(),
+                commands::confessions::confess_to(),
+                commands::confessions::set_vetting(),
+                commands::confessions::set_confessing(),
             ],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),

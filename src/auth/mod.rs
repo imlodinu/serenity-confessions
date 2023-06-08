@@ -11,8 +11,9 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 #[allow(dead_code)]
 #[derive(Clone, Debug, Copy)]
 pub enum Auth {
-    User,
+    Everyone,
     Admin,
+    User(serenity::UserId),
     Role(serenity::RoleId),
 }
 
@@ -22,8 +23,9 @@ pub async fn is_user_authorised_for_action(
     required: Auth,
 ) -> Result<bool> {
     match required {
-        Auth::User => Ok(true),
+        Auth::Everyone => Ok(true),
         Auth::Admin => Ok(member.permissions(&ctx).unwrap().manage_guild()),
+        Auth::User(needed_user_id) => Ok(member.user.id == needed_user_id),
         Auth::Role(needed_role_id) => {
             match member.user.has_role(ctx, ctx.guild_id().unwrap(), needed_role_id).await {
                 Ok(has_role) => Ok(has_role),
@@ -39,8 +41,9 @@ pub async fn respond_based_on_auth_context(ctx: &Context<'_>, required: Auth) ->
             true => Ok(true),
             false => {
                 let formatted = match required {
-                    Auth::User => "`user`".to_owned(),
+                    Auth::Everyone => "`everyone`".to_owned(),
                     Auth::Admin => "`admin`".to_owned(),
+                    Auth::User(id) => format!("user to be <@{}>", id.0),
                     Auth::Role(id) => format!("<@&{}>", id.0),
                 };
                 match ctx

@@ -95,7 +95,7 @@ pub async fn _confess_to(
     // get a modal to send to the user
     let response = match channel_usage_result {
         Ok(channel_type) => {
-            match channel_type == ChannelUse::ConfessionOut {
+            match channel_type == ChannelUse::Confession {
                 true => {
                     post_confession(&ctx, channel, ConfessionInfo { 
                         author: ctx.author().clone(), 
@@ -146,4 +146,19 @@ pub async fn confess(
     #[description = "An image"] image: Option<serenity::Attachment>,
 ) -> Result<(), Error> {
     _confess_to(&ctx, ctx.channel_id(), content, image).await
+}
+
+
+#[poise::command(slash_command, prefix_command, guild_only = true)]
+pub async fn set_vetting(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    super::channel::set_channel(&ctx, ChannelUse::Vetting).await
+}
+
+#[poise::command(slash_command, prefix_command, guild_only = true)]
+pub async fn set_confessing(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    super::channel::set_channel(&ctx, ChannelUse::Confession).await
 }

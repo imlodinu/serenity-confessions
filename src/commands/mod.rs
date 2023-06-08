@@ -1,5 +1,7 @@
 use tracing::info;
 
+use serenity::model::application::command::Command;
+
 // this is a blank struct initialised in main.rs and then imported here
 use crate::{auth, operations, Data};
 
@@ -10,13 +12,21 @@ pub mod channel;
 pub mod confessions;
 
 #[poise::command(slash_command, prefix_command, guild_only = true)]
-pub async fn print(ctx: Context<'_>) -> Result<(), Error> {
-    let models = operations::guild::get_guilds(&ctx.data().database)
-        .await
-        .unwrap();
-    if let Err(why) = ctx.say(serde_json::to_string(&models)?).await {
-        info!("Error sending message: {:?}", why);
-    }
+pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
+    let auth_res =
+        auth::respond_based_on_auth_context(&ctx, auth::Auth::Role(505513490077843477.into()))
+            .await;
+    match auth_res {
+        Ok(authorised) => {
+            if !authorised {
+                return Ok(());
+            }
+        }
+        Err(_) => return Ok(()),
+    };
+    Command::set_global_application_commands(&ctx, |commands| {
+        commands.set_application_commands(vec![])
+    }).await?;
     Ok(())
 }
 

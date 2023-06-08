@@ -10,17 +10,17 @@ pub enum ChannelUse {
     #[name = "none"]
     None,
     #[name = "confession"]
-    ConfessionOut,
+    Confession,
     #[name = "vetting"]
-    ConfessionVet,
+    Vetting,
 }
 
 impl Into<i32> for ChannelUse {
     fn into(self) -> i32 {
         match self {
             ChannelUse::None => 0,
-            ChannelUse::ConfessionOut => 1,
-            ChannelUse::ConfessionVet => 2,
+            ChannelUse::Confession => 1,
+            ChannelUse::Vetting => 2,
         }
     }
 }
@@ -29,8 +29,8 @@ impl From<i32> for ChannelUse {
     fn from(i: i32) -> Self {
         match i {
             0 => ChannelUse::None,
-            1 => ChannelUse::ConfessionOut,
-            2 => ChannelUse::ConfessionVet,
+            1 => ChannelUse::Confession,
+            2 => ChannelUse::Vetting,
             _ => ChannelUse::None,
         }
     }
@@ -40,8 +40,8 @@ impl Into<sea_orm::Value> for ChannelUse {
     fn into(self) -> sea_orm::Value {
         sea_orm::Value::Int(Some(match self {
             ChannelUse::None => 0,
-            ChannelUse::ConfessionOut => 1,
-            ChannelUse::ConfessionVet => 2,
+            ChannelUse::Confession => 1,
+            ChannelUse::Vetting => 2,
         }))
     }
 }

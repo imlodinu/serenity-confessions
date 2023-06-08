@@ -5,6 +5,7 @@ use tracing::info;
 
 use crate::entity::guild;
 
+#[allow(dead_code)]
 pub async fn get_guilds(db: &DatabaseConnection) -> Option<Vec<guild::Model>> {
     guild::Entity::find().all(db).await.ok()
 }

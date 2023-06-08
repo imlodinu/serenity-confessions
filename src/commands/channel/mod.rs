@@ -8,10 +8,9 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 use super::super::operations::channels::ChannelUse;
 
-#[poise::command(slash_command, prefix_command, guild_only = true)]
 pub async fn set_channel(
-    ctx: Context<'_>,
-    #[description = "Usage of the channel"] channel_use: ChannelUse,
+    ctx: &Context<'_>,
+    channel_use: ChannelUse,
 ) -> Result<(), Error> {
     let channel_result = operations::channels::add_channel_for_guild(
         &ctx.data().database,
@@ -29,6 +28,7 @@ pub async fn set_channel(
     }
     Ok(())
 }
+
 
 #[poise::command(slash_command, prefix_command, guild_only = true)]
 pub async fn get_channels(ctx: Context<'_>) -> Result<(), Error> {
