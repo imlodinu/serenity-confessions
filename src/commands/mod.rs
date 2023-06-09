@@ -1,5 +1,5 @@
-use tracing::info;
 use poise::serenity_prelude as serenity;
+use tracing::info;
 
 // this is a blank struct initialised in main.rs and then imported here
 use crate::{auth, operations, Data};
@@ -24,8 +24,7 @@ pub async fn commands(ctx: Context<'_>) -> Result<(), Error> {
         }
         Err(_) => return Ok(()),
     };
-    if let Err(why) = poise::builtins::register_application_commands_buttons(ctx).await
-    {
+    if let Err(why) = poise::builtins::register_application_commands_buttons(ctx).await {
         info!("Could not pose registeration commands: {:?}", why);
     };
     Ok(())
@@ -63,7 +62,12 @@ pub async fn initialise(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn handle<'a>(ctx: &serenity::Context, ev: &poise::Event<'a>, framework: FrameworkContext<'a>, data: &Data) -> Result<(), Error> {
+pub async fn handle<'a>(
+    ctx: &serenity::Context,
+    ev: &poise::Event<'a>,
+    framework: FrameworkContext<'a>,
+    data: &Data,
+) -> Result<(), Error> {
     let confession_handle = confessions::handle(ctx, ev, framework, data).await;
     if confession_handle.is_ok() {
         return confession_handle;

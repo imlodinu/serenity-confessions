@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use migration::OnConflict;
 use rand::Rng;
 use sea_orm::{DatabaseConnection, EntityTrait, Set};
 
@@ -15,6 +16,11 @@ pub async fn set_guild_hash(
     };
 
     let guild_hash_result = confession_guild_hashes::Entity::insert(guild_hash)
+        .on_conflict(
+            OnConflict::column(confession_guild_hashes::Column::Hash)
+                .update_column(confession_guild_hashes::Column::Hash)
+                .to_owned(),
+        )
         .exec(db)
         .await;
 
@@ -46,4 +52,15 @@ pub async fn get_or_new_guild_hash(
         }
         Err(e) => Err(anyhow!("Error getting guild hash from database: {:?}", e)),
     }
+}
+
+pub async fn shuffle_guild_hash(
+    db: &DatabaseConnection,
+    guild_id: u64,
+) -> Result<confession_guild_hashes::Model> {
+    let random = {
+        let mut rng = rand::thread_rng();
+        rng.gen::<u64>()
+    };
+    set_guild_hash(db, guild_id, random).await
 }

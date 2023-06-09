@@ -1,3 +1,4 @@
+use ::serenity::http::CacheHttp;
 use anyhow::{anyhow, Result};
 use poise::serenity_prelude as serenity;
 
@@ -40,16 +41,24 @@ pub async fn respond_based_on_auth_context(ctx: &Context<'_>, required: Auth) ->
     let result = match required {
         Auth::Everyone => Ok(true),
         Auth::Admin => match ctx.partial_guild().await {
-            Some(_) => Ok(ctx
-                .author_member()
-                .await
-                .map(|v| {
-                    v.permissions
-                        .map(|permissions| permissions.manage_channels())
-                })
-                .unwrap_or(Some(false))
-                .unwrap_or(false)),
-            None => Ok(false),
+            Some(_) => {
+                let http = ctx.http();
+                let guild_id = ctx.guild_id().unwrap();
+                let roles = guild_id
+                    .member(&http, ctx.author().id.0)
+                    .await?
+                    .roles
+                    .clone();
+                let requested_roles = guild_id.roles(&http).await.unwrap();
+                let has_admin = roles.into_iter().any(|role_id| {
+                    requested_roles
+                        .get(&role_id)
+                        .map(|role| role.permissions.manage_channels())
+                        .unwrap_or(false)
+                });
+                Ok(has_admin)
+            }
+            None => Err(anyhow!("Could not get guild.")),
         },
         Auth::User(user_id) => {
             let author_id = ctx.author().id;
@@ -64,14 +73,17 @@ pub async fn respond_based_on_auth_context(ctx: &Context<'_>, required: Auth) ->
             None => Ok(false),
         },
     };
-    if let Err(e) = result {
-        send_unauthorised_message(ctx, required).await?;
-        return Err(e);
-    } else if let Ok(v) = result {
-        if v == false {
+    match result {
+        Err(e) => {
             send_unauthorised_message(ctx, required).await?;
+            println!("Error: {}", e.to_string());
+            Err(e)
         }
-        return Ok(v);
-    };
-    return Ok(false);
+        Ok(v) => {
+            if v == false {
+                send_unauthorised_message(ctx, required).await?;
+            }
+            Ok(v)
+        }
+    }
 }

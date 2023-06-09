@@ -46,7 +46,7 @@ pub async fn get_guild_confession_hash(db: &sea_orm::DatabaseConnection, guild_i
     guild_confession_hash.unwrap().hash
 }
 
-pub async fn get_hash_from_user(guild_confession_hash: u64, user: serenity::UserId) -> u32 {
+pub fn get_hash_from_user(guild_confession_hash: u64, user: serenity::UserId) -> u32 {
     let mut hasher = XxHash64::with_seed(guild_confession_hash);
     hasher.write_u64(user.0);
     to_user(hasher.finish())
@@ -88,8 +88,7 @@ pub async fn send_verify_confession(
             let show_id = get_hash_from_user(
                 get_guild_confession_hash(&ctx.data().database, guild.0).await,
                 info.author.id,
-            )
-            .await;
+            );
             if let Err(why) = channel_id
                 .send_message(&ctx, |message| {
                     message
@@ -306,6 +305,59 @@ pub async fn set_confessing(ctx: Context<'_>) -> Result<(), Error> {
     super::channel::set_channel(&ctx, ChannelUse::Confession).await
 }
 
+#[poise::command(prefix_command, guild_only = true)]
+pub async fn confessor_reveal(
+    ctx: Context<'_>,
+    #[description = "Reveal"] id: String,
+) -> Result<(), Error> {
+    let auth_res = auth::respond_based_on_auth_context(&ctx, auth::Auth::Admin).await;
+    if let Err(_) = auth_res {
+        return Ok(());
+    } else if let Ok(authorised) = auth_res {
+        if !authorised {
+            return Ok(());
+        }
+    };
+    let numbered_id = u32::from_str_radix(&id, 16);
+    if let Err(_) = numbered_id {
+        ctx.say(format!("Invalid ID: {}", id)).await?;
+        return Ok(());
+    }
+    let guild_confession_hash =
+        get_guild_confession_hash(&ctx.data().database, ctx.guild_id().unwrap().0).await;
+    match ctx
+        .partial_guild()
+        .await
+        .unwrap()
+        .members(ctx, None, None)
+        .await
+    {
+        Ok(members) => {
+            let found = members
+                .into_iter()
+                .find(|member| {
+                    get_hash_from_user(guild_confession_hash, member.user.id)
+                        == numbered_id.to_owned().unwrap()
+                })
+                .map(|member| member.user.name);
+            match found {
+                Some(name) => {
+                    ctx.say(format!("Found user: {}", name)).await?;
+                }
+                None => {
+                    ctx.say(format!("Could not find user with ID: {}", id))
+                        .await?;
+                }
+            }
+        }
+        Err(e) => {
+            ctx.say(format!("Error getting members: {}", e.to_string()))
+                .await?;
+        }
+    };
+    Ok(())
+}
+
 pub async fn handle<'a>(
     ctx: &serenity::Context,
     ev: &poise::Event<'a>,
@@ -340,10 +392,13 @@ pub async fn handle<'a>(
                                 match info_opt {
                                     Some(info) => {
                                         let show_id = get_hash_from_user(
-                                            get_guild_confession_hash(&data.database, component.guild_id.unwrap().0).await,
+                                            get_guild_confession_hash(
+                                                &data.database,
+                                                component.guild_id.unwrap().0,
+                                            )
+                                            .await,
                                             info.author.id,
-                                        )
-                                        .await;
+                                        );
                                         if let Err(why) = send_info
                                             .1
                                             .send_message(&ctx, move |m| {
@@ -428,5 +483,24 @@ pub async fn handle<'a>(
             _ => {}
         }
     }
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command, guild_only = true, guild_cooldown = 5)]
+pub async fn shuffle(ctx: Context<'_>) -> Result<(), Error> {
+    match operations::confession_guild_hashes::shuffle_guild_hash(
+        &ctx.data().database,
+        ctx.guild_id().unwrap().0,
+    )
+    .await
+    {
+        Ok(_) => {
+            ctx.say(format!("Shuffled!")).await?;
+        }
+        Err(e) => {
+            ctx.say(format!("Error shuffling: {}", e.to_string()))
+                .await?;
+        }
+    };
     Ok(())
 }

@@ -57,6 +57,8 @@ async fn serenity(
                 commands::confessions::confess_to(),
                 commands::confessions::set_vetting(),
                 commands::confessions::set_confessing(),
+                commands::confessions::confessor_reveal(),
+                commands::confessions::shuffle(),
             ],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),
