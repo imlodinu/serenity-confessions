@@ -10,6 +10,7 @@ type FrameworkContext<'a> = poise::FrameworkContext<'a, Data, Error>;
 
 pub mod channel;
 pub mod confessions;
+pub mod guild;
 
 #[poise::command(prefix_command)]
 pub async fn commands(ctx: Context<'_>) -> Result<(), Error> {
@@ -30,7 +31,7 @@ pub async fn commands(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(slash_command, prefix_command, guild_only = true)]
+#[poise::command(prefix_command, guild_only = true)]
 pub async fn initialise(ctx: Context<'_>) -> Result<(), Error> {
     let auth_res = auth::respond_based_on_auth_context(&ctx, auth::Auth::Admin).await;
     match auth_res {

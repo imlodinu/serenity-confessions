@@ -54,11 +54,14 @@ async fn serenity(
                 commands::channel::get_channels(),
                 //
                 commands::confessions::confess(),
-                commands::confessions::confess_to(),
+                // TODO: Add autocomplete for this thing.
+                // commands::confessions::confess_to(),
                 commands::confessions::set_vetting(),
                 commands::confessions::set_confessing(),
-                commands::confessions::confessor_reveal(),
+                commands::confessions::vote_reveal(),
                 commands::confessions::shuffle(),
+                //
+                commands::guild::set_mod_role(),
             ],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),
@@ -79,9 +82,9 @@ async fn serenity(
                 | serenity::GatewayIntents::GUILD_MESSAGES
                 | serenity::GatewayIntents::DIRECT_MESSAGES,
         )
-        .setup(|ctx, _ready, framework| {
+        .setup(|_ctx, _ready, _framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                // poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 Ok(Data {
                     database: database::connect().await.unwrap(),
                 })

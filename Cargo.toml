@@ -10,7 +10,7 @@ publish = false
 shuttle-runtime = "0.17.0"
 anyhow = "1.0.71"
 chrono = { version = "0.4.24", features = ["serde"] }
-serenity = { version = "0.11.5", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
+serenity = { version = "0.11.5", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "collector"] }
 shuttle-secrets = "0.17.0"
 shuttle-serenity = "0.17.0"
 tokio = "1.28.2"

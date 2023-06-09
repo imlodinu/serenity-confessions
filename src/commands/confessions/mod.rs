@@ -1,9 +1,11 @@
+use ::serenity::futures::StreamExt;
+use anyhow::anyhow;
 use poise::{execute_modal, serenity_prelude as serenity, Modal};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use std::hash::Hasher;
 use std::mem;
+use std::{hash::Hasher, time::Duration};
 use twox_hash::XxHash64;
 
 // this is a blank struct initialised in main.rs and then imported here
@@ -111,7 +113,7 @@ pub async fn send_verify_confession(
                                             .label("Approve")
                                             .style(serenity::ButtonStyle::Success)
                                             .custom_id(
-                                                button::ButtonCustomId::ApproveConfession((
+                                                button::ConfessionButton::ApproveConfession((
                                                     info.author.id,
                                                     target_channel,
                                                 ))
@@ -124,7 +126,7 @@ pub async fn send_verify_confession(
                                             .label("Deny")
                                             .style(serenity::ButtonStyle::Danger)
                                             .custom_id(
-                                                button::ButtonCustomId::DenyConfession()
+                                                button::ConfessionButton::DenyConfession
                                                     .to_string(),
                                             )
                                             .to_owned(),
@@ -189,14 +191,6 @@ pub async fn _confess_to(
         Ok(channel_type) => {
             match channel_type == ChannelUse::Confession {
                 true => {
-                    // post_confession(&ctx, channel, ConfessionInfo { 
-                    //     author: ctx.author().clone(), 
-                    //     content: content.unwrap_or("?".to_owned()), 
-                    //     image: input_image }).await;
-                    // ConfessionInfo { 
-                    //     author: ctx.author().clone(), 
-                    //     content: content.unwrap_or("?".to_owned()), 
-                    //     image: input_image };
                     send_verify_confession(
                         *ctx,
                         channel,
@@ -306,7 +300,7 @@ pub async fn set_confessing(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 #[poise::command(prefix_command, guild_only = true)]
-pub async fn confessor_reveal(
+pub async fn vote_reveal(
     ctx: Context<'_>,
     #[description = "Reveal"] id: String,
 ) -> Result<(), Error> {
@@ -318,6 +312,7 @@ pub async fn confessor_reveal(
             return Ok(());
         }
     };
+
     let numbered_id = u32::from_str_radix(&id, 16);
     if let Err(_) = numbered_id {
         ctx.say(format!("Invalid ID: {}", id)).await?;
@@ -325,7 +320,7 @@ pub async fn confessor_reveal(
     }
     let guild_confession_hash =
         get_guild_confession_hash(&ctx.data().database, ctx.guild_id().unwrap().0).await;
-    match ctx
+    let found_out = match ctx
         .partial_guild()
         .await
         .unwrap()
@@ -339,22 +334,177 @@ pub async fn confessor_reveal(
                     get_hash_from_user(guild_confession_hash, member.user.id)
                         == numbered_id.to_owned().unwrap()
                 })
-                .map(|member| member.user.name);
+                .map(|member| member.user.id);
             match found {
-                Some(name) => {
-                    ctx.say(format!("Found user: {}", name)).await?;
-                }
-                None => {
-                    ctx.say(format!("Could not find user with ID: {}", id))
-                        .await?;
-                }
+                Some(id) => Ok(id),
+                None => Err(anyhow!("Could not find user with ID: {}", id)),
             }
         }
-        Err(e) => {
-            ctx.say(format!("Error getting members: {}", e.to_string()))
-                .await?;
-        }
+        Err(e) => Err(anyhow!("Error getting members: {}", e.to_string())),
     };
+
+    if let Err(why) = found_out {
+        ctx.say(format!("Error: {}", why.to_string())).await?;
+        return Ok(());
+    }
+    let found_user = found_out.unwrap();
+
+    let reply_handle_res = ctx
+        .send(|message| {
+            message
+                .reply(true)
+                .content(format!("Reveal the user behind `{}`?", id))
+                .components(|components| {
+                    components.create_action_row(|row| {
+                        row.create_button(|button| {
+                            button
+                                .custom_id(
+                                    button::ConfessionRevealButton::RevealConfession(id.clone())
+                                        .to_string(),
+                                )
+                                .label("Yes")
+                        })
+                        .create_button(|button| {
+                            button
+                                .custom_id(
+                                    button::ConfessionRevealButton::KeepConfession.to_string(),
+                                )
+                                .label("No")
+                        })
+                    })
+                })
+        })
+        .await;
+    if let Err(e) = reply_handle_res {
+        ctx.say(format!("Error sending message: {}", e.to_string()))
+            .await?;
+        return Ok(());
+    }
+    let the_mods = crate::commands::guild::get_guild_moderators(ctx).await;
+    if let Err(why_no_mods) = the_mods {
+        ctx.say(format!(
+            "Error getting moderators: {}",
+            why_no_mods.to_string()
+        ))
+        .await?;
+        return Ok(());
+    }
+    let the_mods = the_mods.unwrap();
+    let the_mods_filter = the_mods.clone();
+
+    let reply_handle_res = reply_handle_res.unwrap();
+    let message = reply_handle_res.message().await.unwrap();
+    let interaction_collector_builder = message.await_component_interactions(&ctx);
+    let mut interaction_collector = interaction_collector_builder
+        .channel_id(ctx.channel_id())
+        .timeout(Duration::from_secs(30))
+        .message_id(message.id)
+        .filter(move |m| the_mods_filter.contains(&m.user.id))
+        .build();
+    let mut voted_for = vec![];
+    let mut voted_against = vec![];
+    let mut all_voted = vec![];
+    while let Some(vote) = interaction_collector.next().await {
+        let is_for = match button::ConfessionRevealButton::from_string(&vote.data.custom_id) {
+            Some(vote_type) => match vote_type {
+                button::ConfessionRevealButton::RevealConfession(_) => true,
+                button::ConfessionRevealButton::KeepConfession => false,
+                button::ConfessionRevealButton::None => false,
+            },
+            None => false,
+        };
+        let already_voted = all_voted.contains(&vote.user.id);
+        if !already_voted {
+            all_voted.push(vote.user.id);
+        }
+        if let Err(why) = vote
+            .create_interaction_response(ctx, |message| {
+                message.interaction_response_data(|response_data| {
+                    response_data
+                        .content(if already_voted {
+                            format!("You already voted! (there are {} votes)", all_voted.len())
+                        } else {
+                            format!(
+                                "You voted {} (there are {} votes)",
+                                if is_for { "for" } else { "against" },
+                                all_voted.len()
+                            )
+                        })
+                        .ephemeral(true)
+                })
+            })
+            .await
+        {
+            ctx.say(format!("Error sending message: {}", why.to_string()))
+                .await?;
+            return Ok(());
+        }
+        if !already_voted {
+            (if is_for {
+                &mut voted_for
+            } else {
+                &mut voted_against
+            })
+            .push(vote.user.id);
+        }
+    }
+    let voted_for_string = voted_for
+        .clone()
+        .iter_mut()
+        .map(|mci| format!("- <@{}>", mci))
+        .collect::<Vec<String>>()
+        .join("\n");
+    let voted_against_string = voted_against
+        .clone()
+        .iter_mut()
+        .map(|mci| format!("- <@{}>", mci))
+        .collect::<Vec<String>>()
+        .join("\n");
+    if let Err(why) = ctx
+        .say(format!(
+            "These moderators voted for:\n{}\nThese ones voted against:\n{}",
+            voted_for_string, voted_against_string
+        ))
+        .await
+    {
+        ctx.say(format!("Error sending message: {}", why.to_string()))
+            .await?;
+        return Ok(());
+    };
+
+    let proceed = voted_for.len() as f64 > ((the_mods.len() as f64) / 2f64);
+    if let Err(e) = message
+        .channel_id
+        .send_message(ctx, |message| {
+            message.content(format!(
+                "{}/{} moderators voted. This is {}",
+                voted_for.len(),
+                the_mods.len(),
+                if proceed { "approved" } else { "denied" }
+            ))
+        })
+        .await
+    {
+        ctx.say(format!("Error sending message: {}", e.to_string()))
+            .await?;
+        return Ok(());
+    }
+
+    if proceed {
+        if let Err(why) = ctx
+            .send(|message| {
+                message
+                    .content(format!("Confessor is <@{}>.", found_user.0))
+                    .allowed_mentions(|mentions| mentions.empty_parse())
+            })
+            .await
+        {
+            ctx.say(format!("Error sending message: {}", why.to_string()))
+                .await?;
+            return Ok(());
+        }
+    }
+
     Ok(())
 }
 
@@ -367,12 +517,10 @@ pub async fn handle<'a>(
     if let poise::Event::InteractionCreate { interaction } = ev {
         match interaction {
             serenity::Interaction::MessageComponent(component) => {
-                match crate::button::ButtonCustomId::from_string(&component.data.custom_id) {
+                match crate::button::ConfessionButton::from_string(&component.data.custom_id) {
                     Some(button_interaction) => {
-                        let should_clear =
-                            if let crate::button::ButtonCustomId::ApproveConfession(send_info) =
-                                button_interaction
-                            {
+                        let should_clear = match button_interaction {
+                            crate::button::ConfessionButton::ApproveConfession(send_info) => {
                                 let maybe_user = send_info.0.to_user(ctx).await;
                                 if let Err(why_no_user) = maybe_user {
                                     println!("Error getting user: {:?}", why_no_user);
@@ -442,9 +590,8 @@ pub async fn handle<'a>(
                                     }
                                 }
                                 valid
-                            } else if let crate::button::ButtonCustomId::DenyConfession() =
-                                button_interaction
-                            {
+                            }
+                            crate::button::ConfessionButton::DenyConfession => {
                                 let mut valid = false;
                                 if let Err(why) = component
                                     .create_interaction_response(&ctx.http, |response| {
@@ -462,9 +609,9 @@ pub async fn handle<'a>(
                                     valid = true;
                                 }
                                 valid
-                            } else {
-                                false
-                            };
+                            }
+                            _ => false,
+                        };
                         if should_clear {
                             let mut message = component.message.clone();
                             if let Err(e) = message
