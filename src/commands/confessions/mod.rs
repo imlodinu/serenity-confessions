@@ -299,6 +299,8 @@ pub async fn set_confessing(ctx: Context<'_>) -> Result<(), Error> {
     super::channel::set_channel(&ctx, ChannelUse::Confession).await
 }
 
+pub const MOD_MAX_VOTES: usize = 5;
+
 #[poise::command(prefix_command, guild_only = true)]
 pub async fn vote_reveal(
     ctx: Context<'_>,
@@ -472,14 +474,18 @@ pub async fn vote_reveal(
         return Ok(());
     };
 
-    let proceed = voted_for.len() as f64 > ((the_mods.len() as f64) / 2f64);
+    let mod_needed = ((the_mods.len() as f64) / 2f64).clamp(1.0, MOD_MAX_VOTES as f64);
+    let proceed = voted_for.len() as f64 > mod_needed
+        && voted_for.len() > 0
+        && voted_for.len() > voted_against.len();
     if let Err(e) = message
         .channel_id
         .send_message(ctx, |message| {
             message.content(format!(
-                "{}/{} moderators voted. This is {}",
+                "{}/{} moderators voted for. Needed {}. This is {}",
                 voted_for.len(),
                 the_mods.len(),
+                mod_needed.trunc() as u32,
                 if proceed { "approved" } else { "denied" }
             ))
         })
