@@ -43,7 +43,11 @@ async fn serenity(
 ) -> Result<BotService, shuttle_runtime::Error> {
     database::initialise(&secret_store);
 
-    let discord_api_key = secret_store.get("DISCORD_TOKEN").unwrap();
+    let discord_api_key = secret_store.get("DISCORD_TOKEN");
+    if let None = discord_api_key {
+        panic!("Error getting discord api key");
+    }
+    let discord_api_key = discord_api_key.unwrap();
 
     let discord_bot = poise::Framework::builder()
         .options(poise::FrameworkOptions {
