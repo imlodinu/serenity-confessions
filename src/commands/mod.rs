@@ -12,7 +12,7 @@ pub mod channel;
 pub mod confessions;
 
 #[poise::command(prefix_command)]
-pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn commands(ctx: Context<'_>) -> Result<(), Error> {
     let auth_res =
         auth::respond_based_on_auth_context(&ctx, auth::Auth::User(505513490077843477.into()))
             .await;
@@ -24,16 +24,9 @@ pub async fn reset_commands(ctx: Context<'_>) -> Result<(), Error> {
         }
         Err(_) => return Ok(()),
     };
-    if let Err(why) = Command::set_global_application_commands(&ctx, |commands| {
-        commands.set_application_commands(vec![])
-    })
-    .await
+    if let Err(why) = poise::builtins::register_application_commands_buttons(ctx).await
     {
-        info!("Could not clear commands: {:?}", why);
-    } else {
-        ctx.send(|message| message.content("Cleared commands.").reply(true))
-            .await?;
-        info!("Cleared commands.");
+        info!("Could not pose registeration commands: {:?}", why);
     };
     Ok(())
 }

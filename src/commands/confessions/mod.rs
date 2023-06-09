@@ -1,4 +1,5 @@
 use poise::{execute_modal, serenity_prelude as serenity, Modal};
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use std::hash::Hasher;
@@ -7,7 +8,7 @@ use twox_hash::XxHash64;
 
 // this is a blank struct initialised in main.rs and then imported here
 use crate::{
-    auth,
+    auth, button,
     operations::{self, confession_guild_hashes},
     Data,
 };
@@ -27,6 +28,7 @@ struct ConfessionModal {
     content: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConfessionInfo {
     author: serenity::User,
     content: String,
@@ -75,13 +77,14 @@ pub async fn post_confession(
 }
 
 pub async fn send_verify_confession(
-    ctx: &Context<'_>,
+    ctx: Context<'_>,
     target_channel: serenity::ChannelId,
     info: ConfessionInfo,
 ) {
+    let guild = ctx.guild_id().unwrap();
     let vetting_channel = operations::channels::get_channels_in_guild_with_use(
         &ctx.data().database,
-        ctx.guild_id().unwrap().0,
+        guild.0,
         ChannelUse::Vetting,
     )
     .await;
@@ -105,43 +108,54 @@ pub async fn send_verify_confession(
     let vetting_channels = vetting_channel.unwrap();
     match vetting_channels.get(0) {
         Some(channel_model) => {
-            let channel_id = channel_model.id;
-            let channel_find_result = ctx
-                .guild()
-                .unwrap()
-                .channels
-                .into_iter()
-                .find(|(id, _)| id.0 == channel_id);
-            if let None = channel_find_result {
-                if let Err(why_msg) = ctx
-                    .send(|builder| {
-                        builder
-                            .content(format!("Error getting vetting channel"))
-                            .ephemeral(true)
-                            .reply(true)
-                    })
-                    .await
-                {
-                    println!("Error sending message: {:?}", why_msg);
-                }
-                return;
-            }
-            let show_id = get_hash_from_user(ctx, info.author.id).await;
-            if let Err(why) = channel_find_result
-                .unwrap()
-                .0
+            let channel_id = serenity::ChannelId::from(channel_model.id);
+            let show_id = get_hash_from_user(&ctx, info.author.id).await;
+            if let Err(why) = channel_id
                 .send_message(&ctx, |message| {
                     message
-                        .content(format!("Confession going to <@&{}>", target_channel.0))
+                        .content(format!("Confession going to <#{}>", target_channel.0))
                         .embed(|embed| {
                             embed
-                                .description(info.content)
+                                .description(&info.content)
                                 .author(|a| a.name(format!("[{:x}]", show_id)))
                                 .colour(show_id);
-                            if let Some(image) = info.image {
+                            if let Some(image) = &info.image {
                                 embed.image(image.url.clone());
                             }
                             embed
+                        })
+                        .components(|components| {
+                            components.create_action_row(|action_row| {
+                                action_row
+                                    .add_button(
+                                        serenity::CreateButton::default()
+                                            .label("Approve")
+                                            .style(serenity::ButtonStyle::Success)
+                                            .custom_id(
+                                                serde_json::to_string(
+                                                    &button::ButtonCustomId::ApproveConfession(
+                                                        info.clone(),
+                                                    ),
+                                                )
+                                                .unwrap_or("unknown".to_owned()),
+                                            )
+                                            .to_owned(),
+                                    )
+                                    .add_button(
+                                        serenity::CreateButton::default()
+                                            .label("Deny")
+                                            .style(serenity::ButtonStyle::Danger)
+                                            .custom_id(
+                                                serde_json::to_string(
+                                                    &button::ButtonCustomId::DenyConfession(
+                                                        info.clone(),
+                                                    ),
+                                                )
+                                                .unwrap_or("unknown".to_owned()),
+                                            )
+                                            .to_owned(),
+                                    )
+                            })
                         })
                 })
                 .await
@@ -210,12 +224,12 @@ pub async fn _confess_to(
                     //     content: content.unwrap_or("?".to_owned()), 
                     //     image: input_image };
                     send_verify_confession(
-                        &ctx,
+                        *ctx,
                         channel,
                         ConfessionInfo {
                             author: ctx.author().clone(),
                             content: content.unwrap_or("?".to_owned()), 
-                            image: input_image 
+                            image: input_image
                         }).await;
                     format!("Your confession has been sent to be vetted.")
                 },

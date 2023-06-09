@@ -9,6 +9,7 @@ mod database;
 mod entity;
 mod operations;
 mod util;
+mod button;
 
 pub struct Data {
     database: sea_orm::DatabaseConnection,
@@ -47,7 +48,7 @@ async fn serenity(
     let discord_bot = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![
-                commands::reset_commands(),
+                commands::commands(),
                 commands::initialise(),
                 //
                 commands::channel::get_channels(),
