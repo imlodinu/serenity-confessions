@@ -7,11 +7,10 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .create_table(
-                Table::create()
+            .alter_table(
+                Table::alter()
                     .table(Guild::Table)
-                    .if_not_exists()
-                    .col(ColumnDef::new(Guild::Id).integer().not_null().primary_key())
+                    .modify_column(ColumnDef::new(Guild::AdminRole).big_unsigned())
                     .to_owned(),
             )
             .await
@@ -19,7 +18,12 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Guild::Table).to_owned())
+            .alter_table(
+                Table::alter()
+                    .table(Guild::Table)
+                    .modify_column(ColumnDef::new(Guild::AdminRole).big_unsigned().not_null())
+                    .to_owned(),
+            )
             .await
     }
 }
@@ -28,5 +32,5 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 enum Guild {
     Table,
-    Id,
+    AdminRole,
 }

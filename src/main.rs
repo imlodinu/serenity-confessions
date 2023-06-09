@@ -4,10 +4,11 @@ use shuttle_secrets::SecretStore;
 mod commands;
 mod router;
 use router::build_router;
+mod auth;
+mod button;
 mod database;
 mod entity;
 mod operations;
-mod auth;
 mod util;
 
 pub struct Data {
@@ -47,12 +48,20 @@ async fn serenity(
     let discord_bot = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![
-                commands::print(),
+                commands::commands(),
                 commands::initialise(),
-                commands::channel::set_channel(),
+                //
                 commands::channel::get_channels(),
                 //
                 commands::confessions::confess(),
+                // TODO: Add autocomplete for this thing.
+                // commands::confessions::confess_to(),
+                commands::confessions::set_vetting(),
+                commands::confessions::set_confessing(),
+                commands::confessions::vote_reveal(),
+                commands::confessions::shuffle(),
+                //
+                commands::guild::set_mod_role(),
             ],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),
@@ -62,6 +71,9 @@ async fn serenity(
                 case_insensitive_commands: true,
                 ..Default::default()
             },
+            event_handler: |ctx, ev, framework, data| {
+                Box::pin(async move { commands::handle(ctx, ev, framework, data).await })
+            },
             ..Default::default()
         })
         .token(discord_api_key)
@@ -70,9 +82,9 @@ async fn serenity(
                 | serenity::GatewayIntents::GUILD_MESSAGES
                 | serenity::GatewayIntents::DIRECT_MESSAGES,
         )
-        .setup(|ctx, _ready, framework| {
+        .setup(|_ctx, _ready, _framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                // poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 Ok(Data {
                     database: database::connect().await.unwrap(),
                 })

@@ -12,7 +12,7 @@ pub async fn connect() -> Option<sea_orm::DatabaseConnection> {
     unsafe {
         let mut opt = ConnectOptions::new(URL.clone().unwrap());
         opt.sqlx_logging_level(tracing::log::LevelFilter::Debug)
-        .sqlx_logging(true);
+            .sqlx_logging(true);
         sea_orm::Database::connect(opt).await.ok()
     }
 }
