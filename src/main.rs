@@ -5,11 +5,11 @@ mod commands;
 mod router;
 use router::build_router;
 mod auth;
+mod button;
 mod database;
 mod entity;
 mod operations;
 mod util;
-mod button;
 
 pub struct Data {
     database: sea_orm::DatabaseConnection,
@@ -65,6 +65,9 @@ async fn serenity(
                 )),
                 case_insensitive_commands: true,
                 ..Default::default()
+            },
+            event_handler: |ctx, ev, framework, data| {
+                Box::pin(async move { commands::handle(ctx, ev, framework, data).await })
             },
             ..Default::default()
         })

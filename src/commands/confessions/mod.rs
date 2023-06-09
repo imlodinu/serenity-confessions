@@ -15,6 +15,7 @@ use crate::{
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
+type FrameworkContext<'a> = poise::FrameworkContext<'a, Data, Error>;
 
 use super::super::operations::channels::ChannelUse;
 
@@ -32,7 +33,7 @@ struct ConfessionModal {
 pub struct ConfessionInfo {
     author: serenity::User,
     content: String,
-    image: Option<serenity::Attachment>,
+    image: Option<String>,
 }
 
 fn to_user(col: u64) -> u32 {
@@ -40,40 +41,15 @@ fn to_user(col: u64) -> u32 {
     return unsafe { mem::transmute::<u64, [u32; 2]>(col % MAX) }[0];
 }
 
-pub async fn get_hash_from_user(db: &Context<'_>, user: serenity::UserId) -> u32 {
-    let guild_confession_hash = confession_guild_hashes::get_or_new_guild_hash(
-        &db.data().database,
-        db.guild_id().unwrap().0,
-    )
-    .await;
-    let mut hasher = XxHash64::with_seed(guild_confession_hash.unwrap().hash);
-    hasher.write_u64(user.0);
-    to_user(hasher.finish())
+pub async fn get_guild_confession_hash(db: &sea_orm::DatabaseConnection, guild_id: u64) -> u64 {
+    let guild_confession_hash = confession_guild_hashes::get_or_new_guild_hash(&db, guild_id).await;
+    guild_confession_hash.unwrap().hash
 }
 
-pub async fn post_confession(
-    ctx: &Context<'_>,
-    target_channel: serenity::ChannelId,
-    info: ConfessionInfo,
-) {
-    let show_id = get_hash_from_user(ctx, info.author.id).await;
-    if let Err(why) = target_channel
-        .send_message(&ctx, move |m| {
-            m.embed(|embed| {
-                embed
-                    .description(info.content)
-                    .author(|a| a.name(format!("[{:x}]", show_id)))
-                    .colour(show_id);
-                if let Some(image) = info.image {
-                    embed.image(image.url.clone());
-                }
-                embed
-            })
-        })
-        .await
-    {
-        println!("Error sending message: {:?}", why);
-    }
+pub async fn get_hash_from_user(guild_confession_hash: u64, user: serenity::UserId) -> u32 {
+    let mut hasher = XxHash64::with_seed(guild_confession_hash);
+    hasher.write_u64(user.0);
+    to_user(hasher.finish())
 }
 
 pub async fn send_verify_confession(
@@ -109,7 +85,11 @@ pub async fn send_verify_confession(
     match vetting_channels.get(0) {
         Some(channel_model) => {
             let channel_id = serenity::ChannelId::from(channel_model.id);
-            let show_id = get_hash_from_user(&ctx, info.author.id).await;
+            let show_id = get_hash_from_user(
+                get_guild_confession_hash(&ctx.data().database, guild.0).await,
+                info.author.id,
+            )
+            .await;
             if let Err(why) = channel_id
                 .send_message(&ctx, |message| {
                     message
@@ -120,7 +100,7 @@ pub async fn send_verify_confession(
                                 .author(|a| a.name(format!("[{:x}]", show_id)))
                                 .colour(show_id);
                             if let Some(image) = &info.image {
-                                embed.image(image.url.clone());
+                                embed.image(image);
                             }
                             embed
                         })
@@ -132,12 +112,11 @@ pub async fn send_verify_confession(
                                             .label("Approve")
                                             .style(serenity::ButtonStyle::Success)
                                             .custom_id(
-                                                serde_json::to_string(
-                                                    &button::ButtonCustomId::ApproveConfession(
-                                                        info.clone(),
-                                                    ),
-                                                )
-                                                .unwrap_or("unknown".to_owned()),
+                                                button::ButtonCustomId::ApproveConfession((
+                                                    info.author.id,
+                                                    target_channel,
+                                                ))
+                                                .to_string(),
                                             )
                                             .to_owned(),
                                     )
@@ -146,12 +125,8 @@ pub async fn send_verify_confession(
                                             .label("Deny")
                                             .style(serenity::ButtonStyle::Danger)
                                             .custom_id(
-                                                serde_json::to_string(
-                                                    &button::ButtonCustomId::DenyConfession(
-                                                        info.clone(),
-                                                    ),
-                                                )
-                                                .unwrap_or("unknown".to_owned()),
+                                                button::ButtonCustomId::DenyConfession()
+                                                    .to_string(),
                                             )
                                             .to_owned(),
                                     )
@@ -229,7 +204,7 @@ pub async fn _confess_to(
                         ConfessionInfo {
                             author: ctx.author().clone(),
                             content: content.unwrap_or("?".to_owned()), 
-                            image: input_image
+                            image: input_image.map(|image| image.url)
                         }).await;
                     format!("Your confession has been sent to be vetted.")
                 },
@@ -329,4 +304,129 @@ pub async fn set_confessing(ctx: Context<'_>) -> Result<(), Error> {
         }
     };
     super::channel::set_channel(&ctx, ChannelUse::Confession).await
+}
+
+pub async fn handle<'a>(
+    ctx: &serenity::Context,
+    ev: &poise::Event<'a>,
+    _: FrameworkContext<'a>,
+    data: &Data,
+) -> Result<(), Error> {
+    if let poise::Event::InteractionCreate { interaction } = ev {
+        match interaction {
+            serenity::Interaction::MessageComponent(component) => {
+                match crate::button::ButtonCustomId::from_string(&component.data.custom_id) {
+                    Some(button_interaction) => {
+                        let should_clear =
+                            if let crate::button::ButtonCustomId::ApproveConfession(send_info) =
+                                button_interaction
+                            {
+                                let maybe_user = send_info.0.to_user(ctx).await;
+                                if let Err(why_no_user) = maybe_user {
+                                    println!("Error getting user: {:?}", why_no_user);
+                                    return Ok(());
+                                }
+                                let user = maybe_user.unwrap();
+                                let info_opt =
+                                    component.message.embeds.get(0).map(|embed| ConfessionInfo {
+                                        author: user,
+                                        content: embed.description.clone().unwrap_or("".to_owned()),
+                                        image: embed
+                                            .image
+                                            .clone()
+                                            .map(|embed_image| embed_image.url),
+                                    });
+                                let mut valid = false;
+                                match info_opt {
+                                    Some(info) => {
+                                        let show_id = get_hash_from_user(
+                                            get_guild_confession_hash(&data.database, component.guild_id.unwrap().0).await,
+                                            info.author.id,
+                                        )
+                                        .await;
+                                        if let Err(why) = send_info
+                                            .1
+                                            .send_message(&ctx, move |m| {
+                                                m.embed(|embed| {
+                                                    embed
+                                                        .description(info.content)
+                                                        .author(|a| {
+                                                            a.name(format!("[{:x}]", show_id))
+                                                        })
+                                                        .colour(show_id);
+                                                    if let Some(image) = info.image {
+                                                        embed.image(image);
+                                                    }
+                                                    embed
+                                                })
+                                            })
+                                            .await
+                                        {
+                                            println!("Error sending message: {:?}", why);
+                                        }
+                                        if let Err(why) = component
+                                            .create_interaction_response(&ctx.http, |response| {
+                                                response.interaction_response_data(
+                                                    |response_data| {
+                                                        response_data.content(format!(
+                                                            "Confession accepted by <@{}>",
+                                                            component.user.id
+                                                        ))
+                                                    },
+                                                )
+                                            })
+                                            .await
+                                        {
+                                            println!("Error sending message: {:?}", why);
+                                        } else {
+                                            valid = true;
+                                        }
+                                    }
+                                    None => {
+                                        valid = false;
+                                    }
+                                }
+                                valid
+                            } else if let crate::button::ButtonCustomId::DenyConfession() =
+                                button_interaction
+                            {
+                                let mut valid = false;
+                                if let Err(why) = component
+                                    .create_interaction_response(&ctx.http, |response| {
+                                        response.interaction_response_data(|response_data| {
+                                            response_data.content(format!(
+                                                "Confession denied by <@{}>",
+                                                component.user.id
+                                            ))
+                                        })
+                                    })
+                                    .await
+                                {
+                                    println!("Error sending message: {:?}", why);
+                                } else {
+                                    valid = true;
+                                }
+                                valid
+                            } else {
+                                false
+                            };
+                        if should_clear {
+                            let mut message = component.message.clone();
+                            if let Err(e) = message
+                                .edit(&ctx.http, |message| {
+                                    message.set_components(serenity::CreateComponents::default())
+                                })
+                                .await
+                            {
+                                println!("Error sending message: {:?}", e);
+                            };
+                        }
+                    }
+                    None => {}
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }

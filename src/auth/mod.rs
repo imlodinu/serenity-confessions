@@ -1,6 +1,3 @@
-use std::borrow::Cow;
-
-use ::serenity::http::CacheHttp;
 use anyhow::{anyhow, Result};
 use poise::serenity_prelude as serenity;
 

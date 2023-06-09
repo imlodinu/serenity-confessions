@@ -1,12 +1,12 @@
 use tracing::info;
-
-use serenity::model::application::command::Command;
+use poise::serenity_prelude as serenity;
 
 // this is a blank struct initialised in main.rs and then imported here
 use crate::{auth, operations, Data};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
+type FrameworkContext<'a> = poise::FrameworkContext<'a, Data, Error>;
 
 pub mod channel;
 pub mod confessions;
@@ -61,4 +61,14 @@ pub async fn initialise(ctx: Context<'_>) -> Result<(), Error> {
         info!("Error sending message: {:?}", why_discord_say);
     }
     Ok(())
+}
+
+pub async fn handle<'a>(ctx: &serenity::Context, ev: &poise::Event<'a>, framework: FrameworkContext<'a>, data: &Data) -> Result<(), Error> {
+    let confession_handle = confessions::handle(ctx, ev, framework, data).await;
+    if confession_handle.is_ok() {
+        return confession_handle;
+    }
+    match ev {
+        _ => Ok(()),
+    }
 }
