@@ -452,7 +452,8 @@ pub async fn vote_reveal(
             .push(vote.user.id);
         }
     }
-    if let Err(e) = message.into_owned()
+    if let Err(e) = message
+        .into_owned()
         .edit(ctx, |message| {
             message.components(|components| components.set_action_rows(vec![]))
         })
@@ -589,10 +590,14 @@ pub async fn handle<'a>(
                                             .create_interaction_response(&ctx.http, |response| {
                                                 response.interaction_response_data(
                                                     |response_data| {
-                                                        response_data.content(format!(
-                                                            "Confession accepted by <@{}>",
-                                                            component.user.id
-                                                        ))
+                                                        response_data
+                                                            .content(format!(
+                                                                "Confession accepted by <@{}>",
+                                                                component.user.id
+                                                            ))
+                                                            .allowed_mentions(|mentions| {
+                                                                mentions.empty_parse()
+                                                            })
                                                     },
                                                 )
                                             })
