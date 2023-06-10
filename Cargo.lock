@@ -544,6 +544,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "confessions-bot"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "migration",
+ "poise",
+ "rand",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serenity",
+ "shuttle-runtime",
+ "shuttle-secrets",
+ "shuttle-serenity",
+ "tokio",
+ "tower",
+ "tracing",
+ "twox-hash",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2669,29 +2692,6 @@ dependencies = [
  "tracing",
  "typemap_rev",
  "url",
-]
-
-[[package]]
-name = "serenity-confessions"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "axum",
- "chrono",
- "migration",
- "poise",
- "rand",
- "sea-orm",
- "serde",
- "serde_json",
- "serenity",
- "shuttle-runtime",
- "shuttle-secrets",
- "shuttle-serenity",
- "tokio",
- "tower",
- "tracing",
- "twox-hash",
 ]
 
 [[package]]
