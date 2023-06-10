@@ -315,6 +315,18 @@ pub async fn vote_reveal(
         }
     };
 
+    let channel_id = ctx.channel_id();
+    let the_mods = crate::commands::guild::get_guild_moderators(ctx).await;
+    if let Err(why_no_mods) = the_mods {
+        ctx.say(format!(
+            "Error getting moderators: {}",
+            why_no_mods.to_string()
+        ))
+        .await?;
+        return Ok(());
+    }
+    let the_mods = the_mods.unwrap();
+
     let numbered_id = u32::from_str_radix(&id, 16);
     if let Err(_) = numbered_id {
         ctx.say(format!("Invalid ID: {}", id)).await?;
@@ -382,16 +394,6 @@ pub async fn vote_reveal(
             .await?;
         return Ok(());
     }
-    let the_mods = crate::commands::guild::get_guild_moderators(ctx).await;
-    if let Err(why_no_mods) = the_mods {
-        ctx.say(format!(
-            "Error getting moderators: {}",
-            why_no_mods.to_string()
-        ))
-        .await?;
-        return Ok(());
-    }
-    let the_mods = the_mods.unwrap();
     let the_mods_filter = the_mods.clone();
 
     let reply_handle_res = reply_handle_res.unwrap();
@@ -450,6 +452,17 @@ pub async fn vote_reveal(
             .push(vote.user.id);
         }
     }
+    if let Err(e) = message.into_owned()
+        .edit(ctx, |message| {
+            message.components(|components| components.set_action_rows(vec![]))
+        })
+        .await
+    {
+        ctx.say(format!("Error sending message: {}", e.to_string()))
+            .await?;
+        return Ok(());
+    }
+
     let voted_for_string = voted_for
         .clone()
         .iter_mut()
@@ -478,8 +491,7 @@ pub async fn vote_reveal(
     let proceed = voted_for.len() as f64 > mod_needed
         && voted_for.len() > 0
         && voted_for.len() > voted_against.len();
-    if let Err(e) = message
-        .channel_id
+    if let Err(e) = channel_id
         .send_message(ctx, |message| {
             message.content(format!(
                 "{}/{} moderators voted for. Needed {}. This is {}",

@@ -27,7 +27,9 @@ pub async fn get_guild_moderators(ctx: Context<'_>) -> anyhow::Result<Vec<sereni
                 Ok(moderators)
             }
             None => {
-                return Ok(vec![]);
+                return Err(anyhow::anyhow!(
+                    "No mod role set. Have you used initialise?"
+                ));
             }
         },
         Err(_) => Err(anyhow::anyhow!(
@@ -54,17 +56,19 @@ pub async fn set_mod_role(
     let this_guild = ctx.guild_id().unwrap().0;
     let found_guild = operations::guild::get_guild(&db, this_guild).await;
     let response = match found_guild {
-        Ok(mut guild_model) => {
-            guild_model.admin_role = role.map(|r| r.0);
-            let set_result = operations::guild::set_guild(&db, guild_model).await;
-            match set_result {
-                Ok(_) => {
-                    match role {
+        Ok(guild_model_opt) => {
+            if let Some(mut guild_model) = guild_model_opt {
+                guild_model.admin_role = role.map(|r| r.0);
+                let set_result = operations::guild::set_guild(&db, guild_model).await;
+                match set_result {
+                    Ok(_) => match role {
                         Some(role_id) => format!("Set mod role to <@&{}>.", role_id),
                         None => format!("Cleared mod role."),
-                    }
+                    },
+                    Err(e) => e.to_string(),
                 }
-                Err(e) => e.to_string(),
+            } else {
+                format!("Guild not found. Have you used initialise?")
             }
         }
         Err(_) => {

@@ -45,16 +45,13 @@ pub async fn initialise(ctx: Context<'_>) -> Result<(), Error> {
     let db = ctx.data().database.clone();
     let this_guild = ctx.guild_id().unwrap().0;
     let found_guild = operations::guild::get_guild(&db, this_guild).await;
-    let response = match found_guild {
-        Ok(guild_model) => {
-            format!("Guild({:#x}) already initialised.", guild_model.id)
-        }
-        Err(_) => {
-            let add_result = operations::guild::add_or_nothing_guild(&db, this_guild).await;
-            match add_result {
-                Ok(_) => format!("Added guild({:#x}).", this_guild),
-                Err(e) => e.to_string(),
-            }
+    let response = if let Ok(Some(guild_model)) = found_guild {
+        format!("Guild({:#x}) already initialised.", guild_model.id)
+    } else {
+        let add_result = operations::guild::add_or_nothing_guild(&db, this_guild).await;
+        match add_result {
+            Ok(_) => format!("Added guild({:#x}).", this_guild),
+            Err(e) => e.to_string(),
         }
     };
     if let Err(why_discord_say) = ctx.say(response).await {
