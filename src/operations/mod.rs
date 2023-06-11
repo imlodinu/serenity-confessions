@@ -1,3 +1,3 @@
 pub mod channels;
-pub mod confession_guild_hashes;
+pub mod guild_confessions;
 pub mod guild;

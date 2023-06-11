@@ -11,7 +11,7 @@ use twox_hash::XxHash64;
 // this is a blank struct initialised in main.rs and then imported here
 use crate::{
     auth, button,
-    operations::{self, confession_guild_hashes},
+    operations::{self, guild_confessions},
     Data,
 };
 
@@ -44,8 +44,8 @@ fn to_user(col: u64) -> u32 {
 }
 
 pub async fn get_guild_confession_hash(db: &sea_orm::DatabaseConnection, guild_id: u64) -> u64 {
-    let guild_confession_hash = confession_guild_hashes::get_or_new_guild_hash(&db, guild_id).await;
-    guild_confession_hash.unwrap().hash
+    let guild_confessions = guild_confessions::get_or_new_guild_confessions(&db, guild_id).await;
+    guild_confessions.unwrap().hash
 }
 
 pub fn get_hash_from_user(guild_confession_hash: u64, user: serenity::UserId) -> u32 {
@@ -658,7 +658,7 @@ pub async fn handle<'a>(
 
 #[poise::command(slash_command, prefix_command, guild_only = true, guild_cooldown = 5)]
 pub async fn shuffle(ctx: Context<'_>) -> Result<(), Error> {
-    match operations::confession_guild_hashes::shuffle_guild_hash(
+    match operations::guild_confessions::shuffle_guild_hash(
         &ctx.data().database,
         ctx.guild_id().unwrap().0,
     )
@@ -670,6 +670,40 @@ pub async fn shuffle(ctx: Context<'_>) -> Result<(), Error> {
         Err(e) => {
             ctx.say(format!("Error shuffling: {}", e.to_string()))
                 .await?;
+        }
+    };
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command, guild_only = true)]
+pub async fn lock_shuffle(
+    ctx: Context<'_>,
+    #[description = "Should be locked"] locked: bool,
+) -> Result<(), Error> {
+    let auth_res = auth::respond_based_on_auth_context(&ctx, auth::Auth::Admin).await;
+    if let Err(_) = auth_res {
+        return Ok(());
+    } else if let Ok(authorised) = auth_res {
+        if !authorised {
+            return Ok(());
+        }
+    };
+    match operations::guild_confessions::set_guild_shuffle_lock(
+        &ctx.data().database,
+        ctx.guild_id().unwrap().into(),
+        locked,
+    )
+    .await
+    {
+        Ok(_) => {
+            ctx.say(format!("Shuffle locked: {}", locked)).await?;
+        }
+        Err(why) => {
+            ctx.say(format!(
+                "Error setting guild confessions in database: {:?}",
+                why
+            ))
+            .await?;
         }
     };
     Ok(())

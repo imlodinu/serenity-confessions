@@ -64,6 +64,7 @@ async fn serenity(
                 commands::confessions::set_confessing(),
                 commands::confessions::vote_reveal(),
                 commands::confessions::shuffle(),
+                commands::confessions::lock_shuffle(),
                 //
                 commands::guild::set_mod_role(),
             ],
