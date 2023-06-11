@@ -94,3 +94,15 @@ pub async fn set_guild_shuffle_lock(
         Err(why) => Err(anyhow!("Error setting guild confessions in database: {:?}", why)),
     }
 }
+
+pub async fn get_guild_shuffle_lock(
+    db: &DatabaseConnection,
+    guild_id: u64,
+) -> Result<bool> {
+    let guild_res = get_or_new_guild_confessions(db, guild_id).await;
+    if let Err(why) = guild_res {
+        return Err(anyhow!("Error getting guild confessions from database: {:?}", why));
+    }
+    let guild = guild_res.unwrap();
+    Ok(guild.lock_shuffle == 1)
+}

@@ -658,6 +658,20 @@ pub async fn handle<'a>(
 
 #[poise::command(slash_command, prefix_command, guild_only = true, guild_cooldown = 5)]
 pub async fn shuffle(ctx: Context<'_>) -> Result<(), Error> {
+    let allowed_shuffle_res = operations::guild_confessions::get_guild_shuffle_lock(
+        &ctx.data().database,
+        ctx.guild_id().unwrap().0,
+    ).await;
+    if let Err(why) = allowed_shuffle_res {
+        ctx.say(format!("Error getting shuffle lock: {}", why.to_string()))
+            .await?;
+        return Ok(());
+    }
+    let allowed_shuffle = allowed_shuffle_res.unwrap();
+    if allowed_shuffle {
+        ctx.say(format!("Shuffle is locked.")).await?;
+        return Ok(());
+    }
     match operations::guild_confessions::shuffle_guild_hash(
         &ctx.data().database,
         ctx.guild_id().unwrap().0,
