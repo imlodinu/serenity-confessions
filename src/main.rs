@@ -43,7 +43,13 @@ async fn serenity(
 ) -> Result<BotService, shuttle_runtime::Error> {
     database::initialise(&secret_store);
 
-    let discord_api_key = secret_store.get("DISCORD_TOKEN");
+    let should_use_test = secret_store.get("TEST").unwrap_or("false".into()) == "true";
+    let token_index = if should_use_test {
+        "TEST_DISCORD_TOKEN"
+    } else {
+        "DISCORD_TOKEN"
+    };
+    let discord_api_key = secret_store.get(token_index);
     if let None = discord_api_key {
         panic!("Error getting discord api key");
     }
@@ -67,6 +73,14 @@ async fn serenity(
                 commands::confessions::lock_shuffle(),
                 //
                 commands::guild::set_mod_role(),
+                // subjects
+                commands::subjects::add_subject(),
+                commands::subjects::get_subjects(),
+                commands::subjects::remove_subject(),
+                commands::subjects::add_user_subjects(),
+                commands::subjects::get_user_subjects(),
+                commands::subjects::remove_user_subjects(),
+                commands::subjects::get_users_with_subject()
             ],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),

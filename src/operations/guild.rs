@@ -67,18 +67,13 @@ pub async fn set_guild(
     }
 }
 
-pub async fn get_guild_mod_role(
-    db: &DatabaseConnection,
-    guild_id: u64,
-) -> Result<Option<u64>> {
+pub async fn get_guild_mod_role(db: &DatabaseConnection, guild_id: u64) -> Result<Option<u64>> {
     match guild::Entity::find_by_id(guild_id).one(db).await {
         Ok(g) => Ok(match g {
-            Some(guild) => {
-                guild.admin_role
-            },
+            Some(guild) => guild.admin_role,
             None => {
                 return Err(anyhow!("Guild not found. Have you used initialise?"));
-            },
+            }
         }),
         Err(e) => Err(anyhow!("Error getting guild from database: {:?}", e)),
     }

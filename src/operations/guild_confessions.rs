@@ -18,7 +18,10 @@ pub async fn set_guild_confessions(
     let guild_confession_result = guild_confessions::Entity::insert(guild_hash)
         .on_conflict(
             OnConflict::column(guild_confessions::Column::GuildId)
-                .update_columns([guild_confessions::Column::LockShuffle, guild_confessions::Column::Hash])
+                .update_columns([
+                    guild_confessions::Column::LockShuffle,
+                    guild_confessions::Column::Hash,
+                ])
                 .to_owned(),
         )
         .exec(db)
@@ -26,7 +29,10 @@ pub async fn set_guild_confessions(
 
     match guild_confession_result {
         Ok(_) => Ok(()),
-        Err(e) => Err(anyhow!("Error inserting guild confessions into database: {:?}", e)),
+        Err(e) => Err(anyhow!(
+            "Error inserting guild confessions into database: {:?}",
+            e
+        )),
     }
 }
 
@@ -47,14 +53,24 @@ pub async fn get_or_new_guild_confessions(
                     let mut rng = rand::thread_rng();
                     rng.gen::<u64>()
                 };
-                let model = guild_confessions::Model { guild_id, hash: random, lock_shuffle: false as i8 };
+                let model = guild_confessions::Model {
+                    guild_id,
+                    hash: random,
+                    lock_shuffle: false as i8,
+                };
                 match set_guild_confessions(db, model.clone()).await {
                     Ok(_) => Ok(model),
-                    Err(why) => Err(anyhow!("Error setting guild confessions in database: {:?}", why)),
+                    Err(why) => Err(anyhow!(
+                        "Error setting guild confessions in database: {:?}",
+                        why
+                    )),
                 }
             }
         }
-        Err(e) => Err(anyhow!("Error getting guild confessions from database: {:?}", e)),
+        Err(e) => Err(anyhow!(
+            "Error getting guild confessions from database: {:?}",
+            e
+        )),
     }
 }
 
@@ -68,13 +84,19 @@ pub async fn shuffle_guild_hash(
     };
     let guild_res = get_or_new_guild_confessions(db, guild_id).await;
     if let Err(why) = guild_res {
-        return Err(anyhow!("Error getting guild confessions from database: {:?}", why));
+        return Err(anyhow!(
+            "Error getting guild confessions from database: {:?}",
+            why
+        ));
     }
     let mut guild = guild_res.unwrap();
     guild.hash = random;
     match set_guild_confessions(db, guild.clone()).await {
         Ok(_) => Ok(guild),
-        Err(why) => Err(anyhow!("Error setting guild confessions in database: {:?}", why)),
+        Err(why) => Err(anyhow!(
+            "Error setting guild confessions in database: {:?}",
+            why
+        )),
     }
 }
 
@@ -85,23 +107,29 @@ pub async fn set_guild_shuffle_lock(
 ) -> Result<guild_confessions::Model> {
     let guild_res = get_or_new_guild_confessions(db, guild_id).await;
     if let Err(why) = guild_res {
-        return Err(anyhow!("Error getting guild confessions from database: {:?}", why));
+        return Err(anyhow!(
+            "Error getting guild confessions from database: {:?}",
+            why
+        ));
     }
     let mut guild = guild_res.unwrap();
     guild.lock_shuffle = if lock_shuffle { 1 } else { 0 };
     match set_guild_confessions(db, guild.clone()).await {
         Ok(_) => Ok(guild),
-        Err(why) => Err(anyhow!("Error setting guild confessions in database: {:?}", why)),
+        Err(why) => Err(anyhow!(
+            "Error setting guild confessions in database: {:?}",
+            why
+        )),
     }
 }
 
-pub async fn get_guild_shuffle_lock(
-    db: &DatabaseConnection,
-    guild_id: u64,
-) -> Result<bool> {
+pub async fn get_guild_shuffle_lock(db: &DatabaseConnection, guild_id: u64) -> Result<bool> {
     let guild_res = get_or_new_guild_confessions(db, guild_id).await;
     if let Err(why) = guild_res {
-        return Err(anyhow!("Error getting guild confessions from database: {:?}", why));
+        return Err(anyhow!(
+            "Error getting guild confessions from database: {:?}",
+            why
+        ));
     }
     let guild = guild_res.unwrap();
     Ok(guild.lock_shuffle == 1)

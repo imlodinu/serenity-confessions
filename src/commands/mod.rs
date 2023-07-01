@@ -11,6 +11,7 @@ type FrameworkContext<'a> = poise::FrameworkContext<'a, Data, Error>;
 pub mod channel;
 pub mod confessions;
 pub mod guild;
+pub mod subjects;
 
 #[poise::command(prefix_command)]
 pub async fn commands(ctx: Context<'_>) -> Result<(), Error> {

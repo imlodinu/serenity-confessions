@@ -3,3 +3,5 @@
 pub use super::channels::Entity as Channels;
 pub use super::guild::Entity as Guild;
 pub use super::guild_confessions::Entity as GuildConfessions;
+pub use super::guild_subjects::Entity as GuildSubjects;
+pub use super::guild_user_subjects::Entity as GuildUserSubjects;

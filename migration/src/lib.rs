@@ -7,6 +7,7 @@ mod m20230608_104157_add_confessions_hashes;
 mod m20230609_120307_add_guild_mod_role;
 mod m20230609_122133_alter_mod_role_optional;
 mod m20230611_042140_broaden_confessions_with_data;
+mod m20230701_075643_managed_subjects;
 
 pub struct Migrator;
 
@@ -21,6 +22,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230609_120307_add_guild_mod_role::Migration),
             Box::new(m20230609_122133_alter_mod_role_optional::Migration),
             Box::new(m20230611_042140_broaden_confessions_with_data::Migration),
+            Box::new(m20230701_075643_managed_subjects::Migration),
         ]
     }
 }

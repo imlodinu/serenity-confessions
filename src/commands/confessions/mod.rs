@@ -31,6 +31,13 @@ struct ConfessionModal {
     content: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ConfessionVetInfo {
+    author: serenity::User,
+    content: String,
+    image: Option<Vec<u8>>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConfessionInfo {
     author: serenity::User,
@@ -57,7 +64,7 @@ pub fn get_hash_from_user(guild_confession_hash: u64, user: serenity::UserId) ->
 pub async fn send_verify_confession(
     ctx: Context<'_>,
     target_channel: serenity::ChannelId,
-    info: ConfessionInfo,
+    info: ConfessionVetInfo,
 ) {
     let guild = ctx.guild_id().unwrap();
     let vetting_channel = operations::channels::get_channels_in_guild_with_use(
@@ -91,48 +98,52 @@ pub async fn send_verify_confession(
                 get_guild_confession_hash(&ctx.data().database, guild.0).await,
                 info.author.id,
             );
+            if let Err(why) = ctx.defer_ephemeral().await {
+                println!("Error deferring message: {:?}", why);
+            };
+            let mut files = vec![];
+            if let Some(img) = &info.image {
+                files.push((&img as &[u8], "image.png"));
+            };
             if let Err(why) = channel_id
-                .send_message(&ctx, |message| {
-                    message
-                        .content(format!("Confession going to <#{}>", target_channel.0))
-                        .embed(|embed| {
-                            embed
-                                .description(&info.content)
-                                .author(|a| a.name(format!("[{:x}]", show_id)))
-                                .colour(show_id);
-                            if let Some(image) = &info.image {
-                                embed.image(image);
-                            }
-                            embed
+                .send_files(&ctx, files, |m| {
+                    m.embed(|embed| {
+                        embed
+                            .description(&info.content)
+                            .author(|a| a.name(format!("[{:x}]", show_id)))
+                            .colour(show_id);
+                        if let Some(_) = &info.image {
+                            embed.image("attachment://image.png");
+                        }
+                        embed
+                    })
+                    .components(|components| {
+                        components.create_action_row(|action_row| {
+                            action_row
+                                .add_button(
+                                    serenity::CreateButton::default()
+                                        .label("Approve")
+                                        .style(serenity::ButtonStyle::Success)
+                                        .custom_id(
+                                            button::ConfessionButton::ApproveConfession((
+                                                info.author.id,
+                                                target_channel,
+                                            ))
+                                            .to_string(),
+                                        )
+                                        .to_owned(),
+                                )
+                                .add_button(
+                                    serenity::CreateButton::default()
+                                        .label("Deny")
+                                        .style(serenity::ButtonStyle::Danger)
+                                        .custom_id(
+                                            button::ConfessionButton::DenyConfession.to_string(),
+                                        )
+                                        .to_owned(),
+                                )
                         })
-                        .components(|components| {
-                            components.create_action_row(|action_row| {
-                                action_row
-                                    .add_button(
-                                        serenity::CreateButton::default()
-                                            .label("Approve")
-                                            .style(serenity::ButtonStyle::Success)
-                                            .custom_id(
-                                                button::ConfessionButton::ApproveConfession((
-                                                    info.author.id,
-                                                    target_channel,
-                                                ))
-                                                .to_string(),
-                                            )
-                                            .to_owned(),
-                                    )
-                                    .add_button(
-                                        serenity::CreateButton::default()
-                                            .label("Deny")
-                                            .style(serenity::ButtonStyle::Danger)
-                                            .custom_id(
-                                                button::ConfessionButton::DenyConfession
-                                                    .to_string(),
-                                            )
-                                            .to_owned(),
-                                    )
-                            })
-                        })
+                    })
                 })
                 .await
             {
@@ -191,13 +202,27 @@ pub async fn _confess_to(
         Ok(channel_type) => {
             match channel_type == ChannelUse::Confession {
                 true => {
+                    let image_data = match input_image {
+                        Some(found_image) => {
+                            // filter non MIME-type images
+                            if !found_image.content_type.clone().unwrap().starts_with("image/") {
+                                None
+                            } else {
+                                match found_image.download().await {
+                                    Ok(image_data) => Some(image_data),
+                                    Err(_) => None,
+                                }
+                            }
+                        },
+                        None => None,
+                    };
                     send_verify_confession(
                         *ctx,
                         channel,
-                        ConfessionInfo {
+                        ConfessionVetInfo {
                             author: ctx.author().clone(),
                             content: content.unwrap_or("?".to_owned()), 
-                            image: input_image.map(|image| image.url)
+                            image: image_data
                         }).await;
                     format!("Your confession has been sent to be vetted.")
                 },
@@ -453,9 +478,15 @@ pub async fn vote_reveal(
         }
     }
     if let Err(e) = message
+        .clone()
         .into_owned()
-        .edit(ctx, |message| {
-            message.components(|components| components.set_action_rows(vec![]))
+        .edit(ctx, |edit_message| {
+            let mut msg = edit_message;
+            let attachments = message.clone().attachments.clone();
+            for attachment in attachments {
+                msg = msg.remove_existing_attachment(attachment.id);
+            }
+            msg.set_components(serenity::CreateComponents::default())
         })
         .await
     {
@@ -619,10 +650,12 @@ pub async fn handle<'a>(
                                 if let Err(why) = component
                                     .create_interaction_response(&ctx.http, |response| {
                                         response.interaction_response_data(|response_data| {
-                                            response_data.content(format!(
-                                                "Confession denied by <@{}>",
-                                                component.user.id
-                                            ))
+                                            response_data
+                                                .content(format!(
+                                                    "Confession denied by <@{}>",
+                                                    component.user.id
+                                                ))
+                                                .allowed_mentions(|mentions| mentions.empty_parse())
                                         })
                                     })
                                     .await
@@ -636,11 +669,21 @@ pub async fn handle<'a>(
                             _ => false,
                         };
                         if should_clear {
-                            let mut message = component.message.clone();
-                            if let Err(e) = message
-                                .edit(&ctx.http, |message| {
-                                    message.set_components(serenity::CreateComponents::default())
-                                })
+                            let msg = component.message.clone();
+                            let mut edit = serenity::EditMessage::default();
+                            edit.set_components(serenity::CreateComponents::default());
+
+                            // Can't directly use `edit` fsr.
+                            if let Err(e) = ctx
+                                .http
+                                .edit_message_and_attachments(
+                                    msg.channel_id.0,
+                                    msg.id.0,
+                                    &::serenity::json::Value::from(
+                                        ::serenity::json::hashmap_to_json_map(edit.0),
+                                    ),
+                                    vec![],
+                                )
                                 .await
                             {
                                 println!("Error sending message: {:?}", e);
@@ -661,7 +704,8 @@ pub async fn shuffle(ctx: Context<'_>) -> Result<(), Error> {
     let allowed_shuffle_res = operations::guild_confessions::get_guild_shuffle_lock(
         &ctx.data().database,
         ctx.guild_id().unwrap().0,
-    ).await;
+    )
+    .await;
     if let Err(why) = allowed_shuffle_res {
         ctx.say(format!("Error getting shuffle lock: {}", why.to_string()))
             .await?;

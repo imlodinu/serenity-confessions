@@ -14,17 +14,19 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager.alter_table(
-            Table::alter()
-                .table(GuildConfessions::Table)
-                .add_column(
-                    ColumnDef::new(GuildConfessions::LockShuffle)
-                        .boolean()
-                        .not_null()
-                        .default(false),
-                )
-                .to_owned(),
-        ).await?;
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(GuildConfessions::Table)
+                    .add_column(
+                        ColumnDef::new(GuildConfessions::LockShuffle)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
         Ok(())
     }
@@ -38,12 +40,14 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager.alter_table(
-            Table::alter()
-                .table(ConfessionGuildHashes::Table)
-                .drop_column(GuildConfessions::LockShuffle)
-                .to_owned(),
-        ).await?;
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(ConfessionGuildHashes::Table)
+                    .drop_column(GuildConfessions::LockShuffle)
+                    .to_owned(),
+            )
+            .await?;
 
         Ok(())
     }
