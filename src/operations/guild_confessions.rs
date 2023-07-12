@@ -19,8 +19,7 @@ pub async fn set_guild_confessions(
         .on_conflict(
             OnConflict::column(guild_confessions::Column::GuildId)
                 .update_columns([
-                    guild_confessions::Column::LockShuffle,
-                    guild_confessions::Column::Hash,
+                    guild_confessions::Column::GuildId,
                 ])
                 .to_owned(),
         )
