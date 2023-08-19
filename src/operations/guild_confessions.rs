@@ -71,7 +71,7 @@ pub async fn shuffle_guild_hash(
 ) -> Result<guild_confessions::Model> {
     let random = {
         let mut rng = rand::thread_rng();
-        rng.gen::<u32>().max(u32::MAX)
+        rng.gen::<u32>()
     };
     let guild_res = get_or_new_guild_confessions(db, guild_id).await;
     if let Err(why) = guild_res {
