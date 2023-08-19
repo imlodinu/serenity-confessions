@@ -60,6 +60,7 @@ async fn serenity(
             commands: vec![
                 commands::commands(),
                 commands::initialise(),
+                commands::util::ping_vc(),
                 //
                 commands::channel::get_channels(),
                 //
@@ -97,9 +98,7 @@ async fn serenity(
         })
         .token(discord_api_key)
         .intents(
-            serenity::GatewayIntents::MESSAGE_CONTENT
-                | serenity::GatewayIntents::GUILD_MESSAGES
-                | serenity::GatewayIntents::DIRECT_MESSAGES,
+            serenity::GatewayIntents::privileged().union(serenity::GatewayIntents::non_privileged()),
         )
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async move {

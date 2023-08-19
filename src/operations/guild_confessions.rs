@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
-use migration::OnConflict;
 use rand::Rng;
-use sea_orm::{DatabaseConnection, EntityTrait, Set};
+use sea_orm::{DatabaseConnection, EntityTrait, Set, ColumnTrait};
 
 use crate::entity::guild_confessions;
 
@@ -15,14 +14,7 @@ pub async fn set_guild_confessions(
         lock_shuffle: Set(guild.lock_shuffle),
     };
 
-    let guild_confession_result = guild_confessions::Entity::insert(guild_hash)
-        .on_conflict(
-            OnConflict::column(guild_confessions::Column::GuildId)
-                .update_columns([
-                    guild_confessions::Column::GuildId,
-                ])
-                .to_owned(),
-        )
+    let guild_confession_result = guild_confessions::Entity::update(guild_hash)
         .exec(db)
         .await;
 
@@ -50,11 +42,11 @@ pub async fn get_or_new_guild_confessions(
             } else {
                 let random = {
                     let mut rng = rand::thread_rng();
-                    rng.gen::<u64>()
+                    rng.gen::<u32>()
                 };
                 let model = guild_confessions::Model {
                     guild_id,
-                    hash: random,
+                    hash: random as u64,
                     lock_shuffle: false as i8,
                 };
                 match set_guild_confessions(db, model.clone()).await {
@@ -79,7 +71,7 @@ pub async fn shuffle_guild_hash(
 ) -> Result<guild_confessions::Model> {
     let random = {
         let mut rng = rand::thread_rng();
-        rng.gen::<u64>()
+        rng.gen::<u32>().max(u32::MAX)
     };
     let guild_res = get_or_new_guild_confessions(db, guild_id).await;
     if let Err(why) = guild_res {
@@ -89,7 +81,7 @@ pub async fn shuffle_guild_hash(
         ));
     }
     let mut guild = guild_res.unwrap();
-    guild.hash = random;
+    guild.hash = random as u64;
     match set_guild_confessions(db, guild.clone()).await {
         Ok(_) => Ok(guild),
         Err(why) => Err(anyhow!(

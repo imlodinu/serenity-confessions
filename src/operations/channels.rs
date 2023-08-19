@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
-use migration::OnConflict;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, InsertResult, QueryFilter, Set};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, InsertResult, QueryFilter, Set, sea_query::OnConflict};
 
 use crate::entity::channels;
 use serde::{Deserialize, Serialize};
@@ -109,18 +108,13 @@ pub async fn add_channel_for_guild(
     guild_id: u64,
     channel_id: u64,
     channel_use: ChannelUse,
-) -> Result<InsertResult<channels::ActiveModel>> {
+) -> Result<channels::Model> {
     let this_channel = channels::ActiveModel {
         id: Set(channel_id),
         guild_id: Set(guild_id),
         channel_use: Set(channel_use.into()),
     };
-    let add_result = channels::Entity::insert(this_channel.clone())
-        .on_conflict(
-            OnConflict::column(channels::Column::ChannelUse)
-                .update_column(channels::Column::ChannelUse)
-                .to_owned(),
-        )
+    let add_result = channels::Entity::update(this_channel.clone())
         .exec(db)
         .await;
     match add_result {

@@ -12,6 +12,7 @@ pub mod channel;
 pub mod confessions;
 pub mod guild;
 pub mod subjects;
+pub mod util;
 
 #[poise::command(prefix_command)]
 pub async fn commands(ctx: Context<'_>) -> Result<(), Error> {

@@ -4,12 +4,11 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "guild_subjects")]
+#[sea_orm(table_name = "guild_members")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    pub guild_id: u64,
-    pub name: String,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: u64,
+    pub last_seen: u64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
-use migration::OnConflict;
-use sea_orm::{DatabaseConnection, EntityTrait, InsertResult, Set};
+use sea_orm::{DatabaseConnection, EntityTrait, InsertResult, Set, sea_query::OnConflict};
 use tracing::info;
 
 use crate::entity::guild;
@@ -45,17 +44,12 @@ pub async fn add_or_nothing_guild(
 pub async fn set_guild(
     db: &DatabaseConnection,
     guild: guild::Model,
-) -> Result<InsertResult<guild::ActiveModel>> {
+) -> Result<guild::Model> {
     let this_guild = guild::ActiveModel {
         id: Set(guild.id),
         admin_role: Set(guild.admin_role),
     };
-    let add_result = guild::Entity::insert(this_guild.clone())
-        .on_conflict(
-            OnConflict::column(guild::Column::AdminRole)
-                .update_column(guild::Column::AdminRole)
-                .to_owned(),
-        )
+    let add_result = guild::Entity::update(this_guild.clone())
         .exec(db)
         .await;
     match add_result {
