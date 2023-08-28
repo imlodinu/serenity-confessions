@@ -117,6 +117,10 @@ pub async fn send_verify_confession(
                         }
                         embed
                     })
+                    .content(format!(
+                        "Confession going to <#{}>",
+                        target_channel.0
+                    ))
                     .components(|components| {
                         components.create_action_row(|action_row| {
                             action_row
