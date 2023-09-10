@@ -524,9 +524,9 @@ pub async fn vote_reveal(
     };
 
     let mod_needed = ((the_mods.len() as f64) / 2f64).clamp(1.0, MOD_MAX_VOTES as f64);
-    let proceed = voted_for.len() as f64 > mod_needed
-        && voted_for.len() > 0
-        && voted_for.len() > voted_against.len();
+    let proceed = voted_for.len() as f64 >= mod_needed
+        && voted_for.len() >= 0
+        && voted_for.len() >= voted_against.len();
     if let Err(e) = channel_id
         .send_message(ctx, |message| {
             message.content(format!(
